@@ -336,13 +336,40 @@
   .lb-rank-n  { color: rgba(255,255,255,0.4); }
 
   #lb-content, #end-lb-content {
-    max-height: 60vh;
-    overflow-y: auto;
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
+
+  /* 分页 */
+  .lb-pages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 10px;
+  }
+  .lb-page-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lb-page-btn.active {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border-color: rgba(255,255,255,0.3);
+  }
+  .lb-page-btn:active { background: rgba(255,255,255,0.25); }
 
   .lb-empty {
     color: rgba(255,255,255,0.25);
@@ -534,6 +561,7 @@
       最终分 = 原始分 + 时间×3 + 最高连击×5 + 消除数<br>同一昵称仅保留最佳成绩
     </div>
     <div id="lb-content"></div>
+    <div class="lb-pages" id="lb-pages"></div>
     <button class="btn" id="lb-close-btn">关闭</button>
   </div>
 
@@ -562,6 +590,7 @@
     </div>
     <div class="divider"></div>
     <div id="end-lb-content"></div>
+    <div class="lb-pages" id="end-lb-pages"></div>
     <button class="btn" id="restart-btn">再来一局</button>
     <button class="btn-small" id="end-back-btn" style="margin-top:12px;">← 返回首页</button>
     <p class="high-score-text" style="margin-top:14px;">北华大学 · 2026 新生季</p>
@@ -590,7 +619,9 @@
   const nameInput      = document.getElementById('name-input');
   const nameHint       = document.getElementById('name-hint');
   const lbContent      = document.getElementById('lb-content');
+  const lbPages        = document.getElementById('lb-pages');
   const endLbContent   = document.getElementById('end-lb-content');
+  const endLbPages     = document.getElementById('end-lb-pages');
   const startHighEl    = document.getElementById('start-highscore');
   const finalScoreEl   = document.getElementById('final-score');
   const newHighEl      = document.getElementById('new-highscore');
@@ -813,15 +844,27 @@
   }
 
   // 渲染排行榜 HTML (接受 list 参数)
-  function renderLBList(container, list, highlightName) {
-    if (!list || !list.length) {
+  const LB_PAGE_SIZE = 10;
+  let lbData = [], lbCurPage = 0, lbHighlight = '';
+  // 分页数据（end 和 独立排行榜分开）
+  let endLbData = [], endLbCurPage = 0, endLbHighlight = '';
+
+  function renderLBPages(container, pagesEl, data, curPage, highlight, setPageFn) {
+    if (!data || !data.length) {
       container.innerHTML = '<div class="lb-empty">暂无记录，快来挑战吧！</div>';
+      pagesEl.innerHTML = '';
       return;
     }
+    const totalPages = Math.ceil(data.length / LB_PAGE_SIZE);
+    if (curPage >= totalPages) curPage = totalPages - 1;
+    if (curPage < 0) curPage = 0;
+
+    const start = curPage * LB_PAGE_SIZE;
+    const page = data.slice(start, start + LB_PAGE_SIZE);
 
     let html = '<table class="lb-table"><tr><th class="rank-col">排名</th><th class="name-col">昵称</th><th class="score-col">最终分</th><th class="time-col">用时</th><th class="time-col">日期</th></tr>';
-    list.forEach((e, i) => {
-      const rank = i + 1;
+    page.forEach((e, i) => {
+      const rank = start + i + 1;
       let rankHtml;
       if (rank === 1) rankHtml = '<span class="lb-rank-icon lb-rank-1">1</span>';
       else if (rank === 2) rankHtml = '<span class="lb-rank-icon lb-rank-2">2</span>';
@@ -829,7 +872,7 @@
       else rankHtml = `<span class="lb-rank-n">${rank}</span>`;
 
       const finalScore = e.final || calcFinal(e);
-      const isMe = highlightName && e.name === highlightName;
+      const isMe = highlight && e.name === highlight;
       const detail = `${e.score || 0}+${(e.time||0)*3}+${(e.maxCombo||1)*5}+${e.pops||0}`;
       html += `<tr class="${isMe ? 'me' : ''}">`;
       html += `<td class="rank-col">${rankHtml}</td>`;
@@ -841,6 +884,33 @@
     });
     html += '</table>';
     container.innerHTML = html;
+
+    // 分页按钮
+    if (totalPages <= 1) { pagesEl.innerHTML = ''; return; }
+    let btns = '';
+    for (let p = 0; p < totalPages; p++) {
+      btns += `<button class="lb-page-btn${p === curPage ? ' active' : ''}" data-page="${p}">${p + 1}</button>`;
+    }
+    pagesEl.innerHTML = btns;
+    pagesEl.querySelectorAll('.lb-page-btn').forEach(btn => {
+      btn.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        setPageFn(parseInt(e.target.dataset.page));
+      });
+    });
+  }
+
+  function showLB(container, pagesEl, data, highlight) {
+    lbData = data; lbHighlight = highlight; lbCurPage = 0;
+    renderLBPages(container, pagesEl, data, 0, highlight, (p) => {
+      renderLBPages(container, pagesEl, lbData, p, lbHighlight, arguments[0]);
+    });
+  }
+
+  function showEndLB(container, pagesEl, data, highlight) {
+    renderLBPages(container, pagesEl, data, 0, highlight, (p) => {
+      renderLBPages(container, pagesEl, data, p, highlight, arguments[0]);
+    });
   }
 
   // ═══════════════════════════════════════════
@@ -1512,7 +1582,7 @@
     }
 
     // 在结束界面展示排行榜
-    renderLBList(endLbContent, list, playerName);
+    showEndLB(endLbContent, endLbPages, list, playerName);
     if (rank > 0) {
       const rankEl = document.createElement('p');
       rankEl.style.cssText = 'color:#f9ca24;font-weight:700;font-size:14px;margin:8px 0 0;';
@@ -1611,7 +1681,7 @@
     gameOverScreen.classList.add('hidden');
     nameScreen.classList.add('hidden');
     const list = await loadLB();
-    renderLBList(lbContent, list, playerName);
+    showLB(lbContent, lbPages, list, playerName);
   });
 
   // ── 通用：返回开始界面 ──
