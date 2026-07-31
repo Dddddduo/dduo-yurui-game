@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>北华大学 · 接接乐 — 欢迎2026级新同学</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --accent: #ff6b9d;
+    --gold: #f9ca24;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #1a1025;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    overscroll-behavior: none;
+    position: fixed;
+    top: 0; left: 0;
+  }
+
+  #game-container {
+    position: relative;
+    width: 100%; height: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ── HUD ── */
+  #hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 14px 18px;
+    padding-top: max(14px, var(--safe-top));
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #score-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #score-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.45);
+    font-weight: 600;
+  }
+
+  #score {
+    font-size: 38px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    transition: transform 0.1s;
+  }
+
+  #lives {
+    display: flex;
+    gap: 5px;
+    font-size: 22px;
+    margin-top: 4px;
+  }
+
+  #lives .hp { transition: transform 0.3s, opacity 0.3s; }
+  #lives .hp.lost { opacity: 0.15; transform: scale(0.6); }
+
+  /* Freeze indicator */
+  #freeze-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 16px;
+    font-weight: 700;
+    color: #5dade2;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    text-shadow: 0 0 16px rgba(93,173,226,0.6);
+    letter-spacing: 2px;
+    z-index: 10;
+  }
+  #freeze-indicator.active { opacity: 1; }
+
+  /* Combo */
+  #combo-display {
+    position: absolute;
+    bottom: 18%;
+    left: 50%;
+    transform: translate(-50%, 0);
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--gold);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    text-shadow: 0 0 24px rgba(249,202,36,0.55);
+    z-index: 10;
+  }
+  #combo-display.active {
+    opacity: 1;
+    transform: translate(-50%, -6px);
+  }
+
+  /* ── Overlays ── */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(26, 16, 37, 0.93);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 20;
+    padding: 40px 28px;
+    padding-bottom: calc(40px + var(--safe-bottom));
+    transition: opacity 0.4s, visibility 0.4s;
+  }
+
+  .overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .overlay h1 {
+    font-size: 44px;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 6px;
+    letter-spacing: 2px;
+  }
+
+  .overlay .subtitle {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 28px;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  .overlay .subtitle b { color: #ff6b9d; }
+  .overlay .subtitle i { color: #5dade2; font-style: normal; }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+  }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend .dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .legend .dot.red  { background: #ff4757; box-shadow: 0 0 6px #ff4757; }
+  .legend .dot.gold { background: #f9ca24; box-shadow: 0 0 6px #f9ca24; }
+  .legend .dot.blue { background: #5dade2; box-shadow: 0 0 6px #5dade2; }
+
+  .btn {
+    display: inline-block;
+    padding: 15px 52px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #ff6b9d, #e94560);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 8px 28px rgba(233, 69, 96, 0.35);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:active {
+    transform: scale(0.93);
+    box-shadow: 0 4px 14px rgba(233, 69, 96, 0.25);
+  }
+
+  .final-score {
+    font-size: 60px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    margin: 8px 0;
+  }
+
+  .new-highscore {
+    font-size: 14px;
+    color: var(--gold);
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    animation: pulse 0.7s infinite alternate;
+  }
+  .new-highscore.hidden { display: none; }
+
+  @keyframes pulse {
+    from { opacity: 0.5; transform: scale(1); }
+    to   { opacity: 1;   transform: scale(1.06); }
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 28px;
+    margin-bottom: 24px;
+  }
+
+  .stat { text-align: center; }
+  .stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 1px;
+  }
+
+  .high-score-text {
+    font-size: 13px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 18px;
+  }
+
+  /* 学校品牌样式 */
+  .school-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .school-badge .icon {
+    font-size: 32px;
+  }
+  .school-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.9);
+    letter-spacing: 3px;
+  }
+  .welcome-banner {
+    font-size: 15px;
+    font-weight: 700;
+    color: #f9ca24;
+    letter-spacing: 2px;
+    margin-bottom: 24px;
+    text-align: center;
+    animation: welcomeGlow 2s infinite alternate;
+  }
+  @keyframes welcomeGlow {
+    from { text-shadow: 0 0 8px rgba(249,202,36,0.3); }
+    to   { text-shadow: 0 0 20px rgba(249,202,36,0.7); }
+  }
+  .divider {
+    width: 50px;
+    height: 2px;
+    background: rgba(255,255,255,0.2);
+    margin: 8px auto 16px;
+    border-radius: 1px;
+  }
+
+  /* 背景水印 */
+  .watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 60px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.03);
+    pointer-events: none;
+    z-index: 1;
+    letter-spacing: 12px;
+    white-space: nowrap;
+    animation: watermarkPulse 4s infinite alternate;
+  }
+  @keyframes watermarkPulse {
+    from { opacity: 0.6; }
+    to   { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- 背景水印 -->
+  <div class="watermark" id="watermark">北华大学</div>
+
+  <div id="hud">
+    <div id="score-panel">
+      <span id="score-label">得分</span>
+      <span id="score">0</span>
+    </div>
+    <div id="lives">
+      <span class="hp">❤️</span>
+      <span class="hp">❤️</span>
+      <span class="hp">❤️</span>
+    </div>
+  </div>
+  <div id="freeze-indicator">❄️ 时间减缓</div>
+  <div id="combo-display"></div>
+
+  <!-- 开始界面 -->
+  <div id="start-screen" class="overlay">
+    <div class="school-badge">
+      <span class="icon">🏫</span>
+      <span class="school-name">北华大学</span>
+    </div>
+    <div class="welcome-banner">🎓 欢迎 2026 级新同学！🎉</div>
+    <h1>🎯 接接乐</h1>
+    <div class="divider"></div>
+    <p class="subtitle">
+      点击<span> <b>图片</b> </span>得分<br>
+      避开<span> <b>红色炸弹</b> </span>💣<br>
+      抓住<span> <b>金色</b> ⭐</span>和<span> <i>冰冻</i> ❄️</span>！
+    </p>
+    <div class="legend">
+      <span><span class="dot gold"></span> 金色 +30</span>
+      <span><span class="dot red"></span> 炸弹 -30</span>
+      <span><span class="dot blue"></span> 冰冻 减速</span>
+    </div>
+    <button class="btn" id="start-btn">开始游戏</button>
+    <p class="high-score-text" id="start-highscore"></p>
+  </div>
+
+  <!-- 结束界面 -->
+  <div id="game-over-screen" class="overlay hidden">
+    <div class="school-badge">
+      <span class="icon">🏫</span>
+      <span class="school-name">北华大学</span>
+    </div>
+    <h1>游戏结束</h1>
+    <div class="final-score" id="final-score">0</div>
+    <div class="new-highscore hidden" id="new-highscore">🏆 新纪录！</div>
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-value" id="stat-max-combo">x1</div>
+        <div class="stat-label">最高连击</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="stat-pops">0</div>
+        <div class="stat-label">消除数</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="stat-time">0秒</div>
+        <div class="stat-label">存活时间</div>
+      </div>
+    </div>
+    <button class="btn" id="restart-btn">再来一局</button>
+    <p class="high-score-text" style="margin-top:14px;">北华大学 · 2026 新生季</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ═══════════════════════════════════════════
+  //  DOM 引用
+  // ═══════════════════════════════════════════
+  const canvas   = document.getElementById('game-canvas');
+  const ctx      = canvas.getContext('2d');
+  const container = document.getElementById('game-container');
+  const scoreEl  = document.getElementById('score');
+  const livesEl  = document.getElementById('lives');
+  const comboEl  = document.getElementById('combo-display');
+  const freezeEl = document.getElementById('freeze-indicator');
+  const watermarkEl = document.getElementById('watermark');
+  const startScreen    = document.getElementById('start-screen');
+  const gameOverScreen = document.getElementById('game-over-screen');
+  const startHighEl    = document.getElementById('start-highscore');
+  const finalScoreEl   = document.getElementById('final-score');
+  const newHighEl      = document.getElementById('new-highscore');
+  const statComboEl    = document.getElementById('stat-max-combo');
+  const statPopsEl     = document.getElementById('stat-pops');
+  const statTimeEl     = document.getElementById('stat-time');
+
+  // ═══════════════════════════════════════════
+  //  音效 (Web Audio API)
+  // ═══════════════════════════════════════════
+  let audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function beep(freq, dur, type = 'sine', vol = 0.07) {
+    if (!audioCtx) return;
+    try {
+      const t = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      o.frequency.exponentialRampToValueAtTime(freq * 0.3, t + dur);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t + dur);
+    } catch(e) {}
+  }
+
+  function sfxPop()    { beep(900, 0.10, 'sine', 0.06); }
+  function sfxGold()   { beep(1200, 0.12, 'sine', 0.08);
+                          setTimeout(() => beep(1600, 0.08, 'sine', 0.06), 50); }
+  function sfxFreeze() { beep(500, 0.15, 'triangle', 0.07);
+                          setTimeout(() => beep(700, 0.12, 'triangle', 0.06), 70); }
+  function sfxBomb()   { beep(45, 0.40, 'sawtooth', 0.14);
+                          setTimeout(() => beep(35, 0.30, 'square', 0.10), 60); }
+  function sfxCombo()  { beep(1000 + Math.random() * 500, 0.06, 'sine', 0.04); }
+
+  // ═══════════════════════════════════════════
+  //  震动 (Vibration API)
+  // ═══════════════════════════════════════════
+  function vibrate(pattern) {
+    if (navigator.vibrate) {
+      navigator.vibrate(pattern);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  图片加载
+  // ═══════════════════════════════════════════
+  const yuruiImg = new Image();
+  yuruiImg.src = 'yurui.png';
+  let imageLoaded = false;
+  yuruiImg.onload  = () => { imageLoaded = true; };
+  yuruiImg.onerror = () => { console.warn('yurui.png 未找到，使用占位图'); };
+
+  // ═══════════════════════════════════════════
+  //  Canvas 设置 (DPI 适配)
+  // ═══════════════════════════════════════════
+  let W, H;
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = container.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // ═══════════════════════════════════════════
+  //  类型配置
+  // ═══════════════════════════════════════════
+  const TYPES = {
+    normal: { points: 10,  maxR: 44, weight: 13, effect: null },
+    gold:   { points: 30,  maxR: 40, weight: 3,  effect: 'gold' },
+    bomb:   { points: -30, maxR: 44, weight: 5,  effect: 'bomb' },
+    freeze: { points: 5,   maxR: 38, weight: 3,  effect: 'freeze' },
+  };
+
+  const TOTAL_WEIGHT = Object.values(TYPES).reduce((s, t) => s + t.weight, 0);
+
+  function pickType() {
+    let r = Math.random() * TOTAL_WEIGHT;
+    for (const [name, cfg] of Object.entries(TYPES)) {
+      r -= cfg.weight;
+      if (r <= 0) return name;
+    }
+    return 'normal';
+  }
+
+  // ═══════════════════════════════════════════
+  //  游戏状态
+  // ═══════════════════════════════════════════
+  let state = 'start'; // start | playing | over
+  let score = 0;
+  let lives = 3;
+  let combo = 0;
+  let maxCombo = 0;
+  let totalPops = 0;
+  let elapsed = 0;
+  let highScore = parseInt(localStorage.getItem('jjl_highscore') || '0', 10);
+  let circles = [];
+  let particles = [];
+  let floatingTexts = [];
+  let spawnTimer = 0;
+  let spawnInterval = 0.85;
+  let difficulty = 1;
+  let shakeAmount = 0;
+  let bgOrbs = [];       // 背景装饰球
+  let frozen = false;
+  let freezeTimer = 0;
+
+  // ═══════════════════════════════════════════
+  //  创建圆圈
+  // ═══════════════════════════════════════════
+  function createCircle(type) {
+    const cfg = TYPES[type];
+    const margin = 55;
+    const x = margin + Math.random() * (W - margin * 2);
+    const y = margin + Math.random() * (H - margin * 2 - 70);
+    return {
+      type,
+      effect: cfg.effect,
+      x, y,
+      // 微小的漂移
+      driftX: (Math.random() - 0.5) * 25,
+      driftY: (Math.random() - 0.5) * 25,
+      driftSpeed: 0.3 + Math.random() * 0.7,
+      radius: 0,
+      maxRadius: cfg.maxR + (Math.random() - 0.5) * 8,
+      points: cfg.points,
+      growing: true,
+      shrinking: false,
+      opacity: 1,
+      lifetime: 0,
+      maxLifetime: 1.9 + Math.random() * 1.4,
+      growSpeed: 95,
+      shrinkSpeed: 105,
+      pulsePhase: Math.random() * Math.PI * 2,
+      // 炸弹震动标记
+      wobble: type === 'bomb' ? (Math.random() - 0.5) * 3 : 0,
+    };
+  }
+
+  // ═══════════════════════════════════════════
+  //  粒子
+  // ═══════════════════════════════════════════
+  function spawnParticles(x, y, color, count = 12) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 80 + Math.random() * 380;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 100,
+        color,
+        life: 0.3 + Math.random() * 0.5,
+        maxLife: 0.3 + Math.random() * 0.5,
+        radius: 2 + Math.random() * 5,
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  浮动文字
+  // ═══════════════════════════════════════════
+  function spawnText(x, y, text, color) {
+    floatingTexts.push({
+      x, y, text, color,
+      life: 0.85,
+      maxLife: 0.85,
+      vy: -130,
+    });
+  }
+
+  // ═══════════════════════════════════════════
+  //  背景装饰球
+  // ═══════════════════════════════════════════
+  function initBgOrbs() {
+    bgOrbs = [];
+    for (let i = 0; i < 30; i++) {
+      bgOrbs.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        radius: 1.5 + Math.random() * 3.5,
+        vy: 6 + Math.random() * 18,
+        opacity: 0.1 + Math.random() * 0.25,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  绘制函数
+  // ═══════════════════════════════════════════
+
+  // 绘制图片圆圈 (统一使用 yurui.png + 效果叠加)
+  function drawImageCircle(x, y, r, opacity, effect) {
+    if (r <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
+    const size = r * 2.2;
+    const hs = size / 2;
+
+    if (imageLoaded) {
+      // 裁剪圆形区域
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.clip();
+
+      // 绘制图片
+      ctx.drawImage(yuruiImg, x - hs, y - hs, size, size);
+
+      // 效果叠加
+      if (effect === 'bomb') {
+        // 红色调叠加
+        ctx.fillStyle = 'rgba(220, 30, 40, 0.30)';
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      } else if (effect === 'freeze') {
+        // 蓝色冰霜叠加
+        ctx.fillStyle = 'rgba(50, 150, 240, 0.22)';
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      } else if (effect === 'gold') {
+        // 金色高光
+        ctx.fillStyle = 'rgba(255, 200, 50, 0.18)';
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+    } else {
+      // 图片未加载时的占位
+      const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.05, x, y, r);
+      grad.addColorStop(0, 'rgba(255,255,255,0.8)');
+      grad.addColorStop(0.3, effect === 'bomb' ? '#ff4757' : effect === 'gold' ? '#f9ca24' : effect === 'freeze' ? '#5dade2' : '#ccc');
+      grad.addColorStop(1, 'rgba(0,0,0,0.25)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // 绘制外圈光环 (不受裁剪影响)
+    if (imageLoaded && effect && r > 5) {
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      const ringR = r + 4;
+
+      if (effect === 'bomb') {
+        // 红色脉冲光环
+        const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.25;
+        ctx.strokeStyle = `rgba(255, 60, 60, ${0.55 * pulse})`;
+        ctx.lineWidth = 3 * pulse;
+        ctx.beginPath();
+        ctx.arc(x, y, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 外层辉光
+        ctx.strokeStyle = `rgba(255, 30, 30, ${0.18 * pulse})`;
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.arc(x, y, ringR + 4, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (effect === 'gold') {
+        // 金色闪烁光环
+        const spark = 1 + Math.sin(performance.now() * 0.006 + 2) * 0.3;
+        ctx.strokeStyle = `rgba(255, 210, 40, ${0.5 * spark})`;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 3]);
+        ctx.lineDashOffset = performance.now() * 0.03;
+        ctx.beginPath();
+        ctx.arc(x, y, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (effect === 'freeze') {
+        // 蓝色冰晶光环
+        ctx.strokeStyle = 'rgba(100, 180, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 棱角效果 - 六边形
+        ctx.strokeStyle = 'rgba(130, 200, 255, 0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = (Math.PI * 2 / 6) * i - Math.PI / 2;
+          const px = x + Math.cos(a) * (ringR + 2);
+          const py = y + Math.sin(a) * (ringR + 2);
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  更新循环
+  // ═══════════════════════════════════════════
+  let lastTime = 0;
+  let dt = 0;
+
+  function update(now) {
+    if (state !== 'playing') return;
+
+    if (!lastTime) lastTime = now;
+    dt = Math.min((now - lastTime) / 1000, 0.1);
+    lastTime = now;
+
+    elapsed += dt;
+
+    // 冰冻计时
+    if (frozen) {
+      freezeTimer -= dt;
+      if (freezeTimer <= 0) {
+        frozen = false;
+        freezeEl.classList.remove('active');
+      }
+    }
+
+    // 难度递增
+    difficulty = 1 + elapsed / 22;
+    const baseInterval = frozen ? 1.6 : 0.85;
+    spawnInterval = Math.max(0.28, baseInterval - elapsed * 0.007);
+
+    // 生成圆圈
+    spawnTimer += dt;
+    while (spawnTimer >= spawnInterval) {
+      spawnTimer -= spawnInterval;
+      circles.push(createCircle(pickType()));
+      if (circles.length > 16) circles.shift();
+    }
+
+    // 更新圆圈
+    for (let i = circles.length - 1; i >= 0; i--) {
+      const c = circles[i];
+      c.lifetime += dt;
+      c.pulsePhase += dt * 5;
+
+      // 微漂移
+      const driftA = elapsed * c.driftSpeed;
+      const ox = Math.sin(driftA) * c.driftX;
+      const oy = Math.cos(driftA * 1.3) * c.driftY;
+      c.drawX = c.x + ox;
+      c.drawY = c.y + oy;
+
+      // 炸弹抖动
+      if (c.type === 'bomb') {
+        c.drawX += Math.sin(c.pulsePhase * 3) * c.wobble;
+        c.drawY += Math.cos(c.pulsePhase * 3.7) * c.wobble;
+      }
+
+      if (c.growing) {
+        c.radius += c.growSpeed * dt;
+        if (c.radius >= c.maxRadius) {
+          c.radius = c.maxRadius;
+          c.growing = false;
+        }
+      }
+
+      if (!c.growing && c.lifetime >= c.maxLifetime) {
+        c.shrinking = true;
+      }
+
+      if (c.shrinking) {
+        c.radius -= c.shrinkSpeed * dt;
+        c.opacity = Math.max(0, c.radius / c.maxRadius);
+        if (c.radius <= 0) {
+          circles.splice(i, 1);
+        }
+      }
+    }
+
+    // 更新粒子
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 350 * dt;
+      p.life -= dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    // 更新浮动文字
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+      const ft = floatingTexts[i];
+      ft.y += ft.vy * dt;
+      ft.life -= dt;
+      if (ft.life <= 0) floatingTexts.splice(i, 1);
+    }
+
+    // 更新震动
+    if (shakeAmount > 0) shakeAmount = Math.max(0, shakeAmount - dt * 10);
+
+    scoreEl.textContent = score;
+  }
+
+  // ═══════════════════════════════════════════
+  //  绘制
+  // ═══════════════════════════════════════════
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // 震动偏移
+    ctx.save();
+    if (shakeAmount > 0.01) {
+      const sx = (Math.random() - 0.5) * shakeAmount * 22;
+      const sy = (Math.random() - 0.5) * shakeAmount * 22;
+      ctx.translate(sx, sy);
+    }
+
+    // 背景渐变
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#1a1025');
+    bg.addColorStop(0.5, '#211835');
+    bg.addColorStop(1, '#1a2040');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // ── 北华大学背景水印 (游戏进行中) ──
+    if (state === 'playing') {
+      ctx.save();
+      ctx.globalAlpha = 0.04;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(W * 0.13)}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('北华大学', W / 2, H * 0.38);
+
+      ctx.globalAlpha = 0.03;
+      ctx.font = `bold ${Math.round(W * 0.06)}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+      ctx.fillText('欢迎2026级新同学', W / 2, H * 0.48);
+      ctx.restore();
+    }
+
+    // 背景装饰球
+    for (const b of bgOrbs) {
+      b.y += b.vy * dt;
+      b.phase += dt * 2.5;
+      if (b.y > H + 15) { b.y = -15; b.x = Math.random() * W; }
+      const alpha = b.opacity + Math.sin(b.phase) * 0.08;
+      ctx.fillStyle = `rgba(200,180,220,${Math.max(0, Math.min(1, alpha))})`;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 绘制圆圈
+    for (const c of circles) {
+      const dx = c.drawX || c.x;
+      const dy = c.drawY || c.y;
+      drawImageCircle(dx, dy, c.radius, c.opacity, c.effect);
+    }
+
+    // 粒子
+    for (const p of particles) {
+      const alpha = Math.max(0, p.life / p.maxLife);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius * (p.life / p.maxLife), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 浮动文字
+    for (const ft of floatingTexts) {
+      const alpha = Math.max(0, ft.life / ft.maxLife);
+      const scale = 1 + (1 - ft.life / ft.maxLife) * 0.5;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = ft.color;
+      ctx.font = `bold ${Math.round(19 * scale)}px -apple-system, "PingFang SC", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(ft.text, ft.x, ft.y);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  function gameLoop(timestamp) {
+    update(timestamp);
+    draw();
+    if (state === 'playing') {
+      requestAnimationFrame(gameLoop);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  输入处理
+  // ═══════════════════════════════════════════
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: cx - rect.left, y: cy - rect.top };
+  }
+
+  function handleTap(e) {
+    if (state !== 'playing') return;
+    e.preventDefault();
+
+    const pos = getPos(e);
+    let hit = false;
+
+    for (let i = circles.length - 1; i >= 0; i--) {
+      const c = circles[i];
+      const dx = pos.x - (c.drawX || c.x);
+      const dy = pos.y - (c.drawY || c.y);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const hitR = Math.max(c.radius, 26);
+
+      if (dist <= hitR) {
+        hit = true;
+        popCircle(c, i);
+        break;
+      }
+    }
+
+    if (!hit) {
+      // 点击落空
+      spawnParticles(pos.x, pos.y, 'rgba(255,255,255,0.35)', 4);
+      combo = 0;
+      comboEl.classList.remove('active');
+    }
+  }
+
+  let comboTimer = null;
+
+  function popCircle(c, index) {
+    const pts = c.points;
+    const x = c.drawX || c.x;
+    const y = c.drawY || c.y;
+
+    circles.splice(index, 1);
+
+    if (c.type === 'bomb') {
+      // ── 炸弹 ──
+      sfxBomb();
+      vibrate([80, 40, 80, 40, 180]);
+      shakeAmount = 1;
+      lives--;
+      combo = 0;
+      comboEl.classList.remove('active');
+
+      spawnParticles(x, y, '#ff4757', 28);
+      spawnParticles(x, y, '#ff8a80', 18);
+      spawnText(x, y - 20, pts.toString(), '#ff4757');
+      score = Math.max(0, score + pts);
+
+      const hps = livesEl.querySelectorAll('.hp');
+      if (hps[lives]) hps[lives].classList.add('lost');
+
+      if (lives <= 0) {
+        endGame();
+        return;
+      }
+    } else if (c.type === 'freeze') {
+      // ── 冰冻 ──
+      sfxFreeze();
+      vibrate(25);
+      frozen = true;
+      freezeTimer = 3.5;
+      freezeEl.classList.add('active');
+
+      combo++;
+      if (combo > maxCombo) maxCombo = combo;
+      score += pts;
+      totalPops++;
+
+      spawnParticles(x, y, '#5dade2', 20);
+      spawnParticles(x, y, '#aed6f1', 12);
+      spawnText(x, y - 20, '❄️ 减速!', '#5dade2');
+    } else {
+      // ── 普通 / 金色 ──
+      if (c.type === 'gold') {
+        sfxGold();
+        vibrate([15, 25, 15]);
+      } else {
+        sfxPop();
+        vibrate(12);
+      }
+
+      combo++;
+      if (combo > maxCombo) maxCombo = combo;
+      const mult = combo >= 3 ? Math.min(combo, 10) : 1;
+      score += pts * mult;
+
+      const txt = combo >= 3 ? `+${pts}x${mult}` : `+${pts}`;
+      const txtColor = c.type === 'gold' ? '#f9ca24' : '#fff';
+      const pColor = c.type === 'gold' ? '#f9ca24' : '#ff6b9d';
+
+      spawnParticles(x, y, pColor, c.type === 'gold' ? 20 : 12);
+      spawnText(x, y - 20, txt, txtColor);
+      totalPops++;
+
+      // 连击显示
+      if (combo >= 3) {
+        sfxCombo();
+        comboEl.textContent = `🔥 ${mult}连击!`;
+        comboEl.classList.add('active');
+        clearTimeout(comboTimer);
+        comboTimer = setTimeout(() => {
+          combo = 0;
+          comboEl.classList.remove('active');
+        }, 900);
+      }
+    }
+
+    // 分数弹跳动画
+    scoreEl.style.transform = 'scale(1.25)';
+    setTimeout(() => { scoreEl.style.transform = ''; }, 110);
+
+    scoreEl.textContent = score;
+  }
+
+  // ═══════════════════════════════════════════
+  //  游戏流程
+  // ═══════════════════════════════════════════
+  function startGame() {
+    initAudio();
+    resizeCanvas();
+    initBgOrbs();
+
+    score = 0;
+    lives = 3;
+    combo = 0;
+    maxCombo = 0;
+    totalPops = 0;
+    elapsed = 0;
+    circles = [];
+    particles = [];
+    floatingTexts = [];
+    spawnTimer = 0;
+    spawnInterval = 0.85;
+    difficulty = 1;
+    shakeAmount = 0;
+    lastTime = 0;
+    frozen = false;
+    freezeTimer = 0;
+
+    scoreEl.textContent = '0';
+    scoreEl.style.transform = '';
+    comboEl.classList.remove('active');
+    comboEl.textContent = '';
+    freezeEl.classList.remove('active');
+
+    const hps = livesEl.querySelectorAll('.hp');
+    hps.forEach(h => h.classList.remove('lost'));
+
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    watermarkEl.style.display = 'none';
+
+    state = 'playing';
+    requestAnimationFrame(gameLoop);
+  }
+
+  function endGame() {
+    state = 'over';
+    frozen = false;
+    freezeEl.classList.remove('active');
+
+    // 爆炸剩余圆圈
+    for (const c of circles) {
+      const x = c.drawX || c.x;
+      const y = c.drawY || c.y;
+      spawnParticles(x, y, c.type === 'bomb' ? '#ff4757' : '#ff6b9d', 6);
+    }
+    circles = [];
+
+    // 最高分
+    let isNew = false;
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('jjl_highscore', highScore);
+      isNew = true;
+    }
+
+    finalScoreEl.textContent = score;
+    statComboEl.textContent = 'x' + (maxCombo || 1);
+    statPopsEl.textContent = totalPops;
+    statTimeEl.textContent = Math.floor(elapsed) + '秒';
+
+    if (isNew) {
+      newHighEl.classList.remove('hidden');
+    } else {
+      newHighEl.classList.add('hidden');
+    }
+
+    gameOverScreen.classList.remove('hidden');
+    watermarkEl.style.display = 'block';
+
+    // 结束动画
+    lastTime = 0;
+    const finalDraw = (ts) => {
+      update(ts);
+      draw();
+      if (particles.length > 0 || floatingTexts.length > 0) {
+        requestAnimationFrame(finalDraw);
+      }
+    };
+    requestAnimationFrame(finalDraw);
+
+    startHighEl.textContent = '最高分: ' + highScore;
+  }
+
+  // ═══════════════════════════════════════════
+  //  事件绑定
+  // ═══════════════════════════════════════════
+  canvas.addEventListener('pointerdown', handleTap, { passive: false });
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    handleTap(e);
+  }, { passive: false });
+
+  container.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+  document.getElementById('start-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    startGame();
+  });
+
+  document.getElementById('restart-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    startGame();
+  });
+
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    initBgOrbs();
+  });
+
+  // ═══════════════════════════════════════════
+  //  初始化
+  // ═══════════════════════════════════════════
+  function init() {
+    resizeCanvas();
+    initBgOrbs();
+    startHighEl.textContent = highScore > 0 ? '最高分: ' + highScore : '';
+    watermarkEl.style.display = 'block';
+    state = 'start';
+
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#1a1025');
+    bg.addColorStop(0.5, '#211835');
+    bg.addColorStop(1, '#1a2040');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // 初始水印
+    ctx.save();
+    ctx.globalAlpha = 0.04;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.round(W * 0.13)}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('北华大学', W / 2, H * 0.38);
+    ctx.globalAlpha = 0.03;
+    ctx.font = `bold ${Math.round(W * 0.06)}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+    ctx.fillText('欢迎2026级新同学', W / 2, H * 0.48);
+    ctx.restore();
+
+    for (const b of bgOrbs) {
+      ctx.fillStyle = `rgba(200,180,220,${b.opacity})`;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
