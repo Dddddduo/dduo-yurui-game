@@ -530,6 +530,9 @@
   <div id="leaderboard-screen" class="overlay hidden">
     <h1>🏆 排行榜</h1>
     <p class="lb-subtitle">北华大学 · 2026 新生季</p>
+    <div id="lb-rules" style="font-size:10px;color:rgba(255,255,255,0.3);text-align:center;margin-bottom:12px;line-height:1.6;">
+      最终分 = 原始分 + 时间×3 + 最高连击×5 + 消除数<br>同一昵称仅保留最佳成绩
+    </div>
     <div id="lb-content"></div>
     <button class="btn" id="lb-close-btn">关闭</button>
   </div>
@@ -688,12 +691,28 @@
   }
   const GH_TOKEN = _tk();
 
-  // base64 解码 (支持中文)
-  function b64decode(b64) {
-    return decodeURIComponent(escape(atob(b64)));
+  // base64 编解码 (支持中文)
+  function b64decode(b64) { return decodeURIComponent(escape(atob(b64))); }
+  function b64encode(str) { return btoa(unescape(encodeURIComponent(str))); }
+
+  // ═══════════════════════════════════════════
+  //  最终得分计算规则
+  //  总分 = 原始得分 + 时间×3 + 最高连击×5 + 消除数×1
+  //  时间越长、连击越高、消除越多 → 最终分越高
+  // ═══════════════════════════════════════════
+  function calcFinal(entry) {
+    return Math.round(
+      (entry.score || 0) +
+      (entry.time || 0) * 3 +
+      (entry.maxCombo || 1) * 5 +
+      (entry.pops || 0) * 1
+    );
   }
-  function b64encode(str) {
-    return btoa(unescape(encodeURIComponent(str)));
+
+  // 格式化月-日
+  function dateMMDD() {
+    const d = new Date();
+    return (d.getMonth() + 1) + '-' + d.getDate();
   }
 
   async function loadLB() {
@@ -710,7 +729,6 @@
 
   async function insertScore(name, score, timeSec, maxCombo, pops) {
     try {
-      // 先读当前数据 + sha
       let list = [], sha = null;
       try {
         const getRes = await fetch(GH_API, {
@@ -723,14 +741,38 @@
         }
       } catch(e) {}
 
-      // 插入新成绩
-      list.push({ name, score, time: timeSec, maxCombo, pops });
-      list.sort((a, b) => b.score - a.score);
+      // 当前成绩
+      const now = dateMMDD();
+      const newEntry = {
+        name,
+        score,
+        time: timeSec,
+        maxCombo,
+        pops,
+        date: now,
+        final: calcFinal({ name, score, time: timeSec, maxCombo, pops }),
+      };
+
+      // ── 同名去重：只保留最终分最高的那条 ──
+      const existIdx = list.findIndex(e => e.name === name);
+      if (existIdx >= 0) {
+        // 旧记录最终分
+        const oldFinal = list[existIdx].final || calcFinal(list[existIdx]);
+        if (newEntry.final > oldFinal) {
+          list[existIdx] = newEntry; // 替换为更好的
+        }
+        // 否则保持不变（保留历史最佳）
+      } else {
+        list.push(newEntry);
+      }
+
+      // 按最终分降序，取前 50
+      list.sort((a, b) => (b.final || calcFinal(b)) - (a.final || calcFinal(a)));
       list = list.slice(0, 50);
 
       // 写回
       const body = {
-        message: `📊 ${name}: ${score}分`,
+        message: `📊 ${name}: ${newEntry.final}分`,
         content: b64encode(JSON.stringify(list)),
       };
       if (sha) body.sha = sha;
@@ -748,7 +790,7 @@
       // 查排名
       let rank = -1;
       for (let i = 0; i < list.length; i++) {
-        if (list[i].name === name && list[i].score === score) { rank = i + 1; break; }
+        if (list[i].name === name) { rank = i + 1; break; }
       }
       return { rank, list };
     } catch(e) { console.warn('成绩提交失败:', e.message); return { rank: -1, list: [] }; }
@@ -777,7 +819,7 @@
       return;
     }
 
-    let html = '<table class="lb-table"><tr><th class="rank-col">排名</th><th class="name-col">昵称</th><th class="score-col">分数</th><th class="time-col">用时</th></tr>';
+    let html = '<table class="lb-table"><tr><th class="rank-col">排名</th><th class="name-col">昵称</th><th class="score-col">最终分</th><th class="time-col">用时</th><th class="time-col">日期</th></tr>';
     list.forEach((e, i) => {
       const rank = i + 1;
       let rankHtml;
@@ -786,12 +828,15 @@
       else if (rank === 3) rankHtml = '<span class="lb-rank-icon lb-rank-3">3</span>';
       else rankHtml = `<span class="lb-rank-n">${rank}</span>`;
 
+      const finalScore = e.final || calcFinal(e);
       const isMe = highlightName && e.name === highlightName;
+      const detail = `${e.score || 0}+${(e.time||0)*3}+${(e.maxCombo||1)*5}+${e.pops||0}`;
       html += `<tr class="${isMe ? 'me' : ''}">`;
       html += `<td class="rank-col">${rankHtml}</td>`;
       html += `<td class="name-col">${e.name}${isMe ? ' 👈' : ''}</td>`;
-      html += `<td class="score-col">${e.score}</td>`;
-      html += `<td class="time-col">${e.time}秒</td>`;
+      html += `<td class="score-col">${finalScore}<br><span style="font-size:9px;color:rgba(255,255,255,0.25);font-weight:400;">${detail}</span></td>`;
+      html += `<td class="time-col">${e.time || 0}秒</td>`;
+      html += `<td class="time-col">${e.date || '-'}</td>`;
       html += '</tr>';
     });
     html += '</table>';

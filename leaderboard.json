@@ -1,1 +1,6 @@
-[{"name":"软件工程之神","score":5201314,"time":55,"maxCombo":8,"pops":26,"date":""},{"name":"北华千里马27","score":1275,"time":50,"maxCombo":3,"pops":100},{"name":"测试","score":0,"time":11,"maxCombo":1,"pops":0}]
+[
+  {"name":"软件工程之神","score":5201314,"time":55,"maxCombo":8,"pops":26,"date":""},
+  {"name":"魔丸","score":54188,"time":50,"maxCombo":3,"pops":100},
+  {"name":"Sun moon","score":1870,"time":70,"maxCombo":3,"pops":134},
+  {"name":"duoduo","score":955,"time":43,"maxCombo":3,"pops":80}
+]
