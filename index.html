@@ -621,7 +621,7 @@
   };
 
   // 开始加载图片
-  yuruiImg.src = 'yurui.png';
+  yuruiImg.src = 'yurui-small.png';
 
   // ── 图片就绪后同时启用排行榜按钮 ──
   const origImgOnload = yuruiImg.onload;
@@ -634,8 +634,7 @@
   // ═══════════════════════════════════════════
   //  玩家姓名 & 排行榜
   // ═══════════════════════════════════════════
-  const LB_KEY = 'jjl_leaderboard';
-  const MAX_LB  = 10;
+  const LB_API  = '/api/leaderboard';
   let playerName = '';
 
   // 随机名字词库
@@ -652,38 +651,45 @@
     return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)] + ('00' + Math.floor(Math.random() * 100)).slice(-2);
   }
 
-  function loadLB() {
-    try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; }
-    catch(e) { return []; }
+  // 从服务器加载排行榜
+  async function loadLB() {
+    try {
+      const res = await fetch(LB_API);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch(e) {
+      console.warn('排行榜加载失败:', e.message);
+      return [];
+    }
   }
 
-  function saveLB(list) {
-    try { localStorage.setItem(LB_KEY, JSON.stringify(list)); } catch(e) {}
+  // 提交成绩到服务器，返回 { rank, leaderboard }
+  async function insertScore(name, score, timeSec, maxCombo, pops) {
+    try {
+      const res = await fetch(LB_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          score,
+          time: timeSec,
+          maxCombo,
+          pops,
+          date: new Date().toISOString(),
+        }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      return { rank: data.rank, list: data.leaderboard || [] };
+    } catch(e) {
+      console.warn('成绩提交失败:', e.message);
+      return { rank: -1, list: [] };
+    }
   }
 
-  // 插入一条成绩，返回排名 (1-based) 或 -1
-  function insertScore(name, score, timeSec, maxCombo, pops) {
-    const list = loadLB();
-    const entry = {
-      name,
-      score,
-      time: timeSec,
-      maxCombo,
-      pops,
-      date: new Date().toISOString(),
-    };
-    list.push(entry);
-    list.sort((a, b) => b.score - a.score);
-    const top = list.slice(0, MAX_LB);
-    saveLB(top);
-    const idx = top.findIndex(e => e === entry);
-    return idx >= 0 ? idx + 1 : -1;
-  }
-
-  // 渲染排行榜 HTML
-  function renderLB(container, highlightName) {
-    const list = loadLB();
-    if (!list.length) {
+  // 渲染排行榜 HTML (接受 list 参数)
+  function renderLBList(container, list, highlightName) {
+    if (!list || !list.length) {
       container.innerHTML = '<div class="lb-empty">暂无记录，快来挑战吧！</div>';
       return;
     }
@@ -1307,7 +1313,7 @@
     requestAnimationFrame(gameLoop);
   }
 
-  function endGame() {
+  async function endGame() {
     state = 'over';
     frozen = false;
     freezeEl.classList.remove('active');
@@ -1328,9 +1334,11 @@
       isNew = true;
     }
 
-    // 插入排行榜
+    // 插入排行榜 (异步)
     const timeSec = Math.floor(elapsed);
-    const rank = insertScore(playerName || '匿名玩家', score, timeSec, maxCombo || 1, totalPops);
+    endLbContent.innerHTML = '<div class="lb-empty">⏳ 提交成绩中...</div>';
+    const result = await insertScore(playerName || '匿名玩家', score, timeSec, maxCombo || 1, totalPops);
+    const { rank, list } = result;
 
     finalScoreEl.textContent = score;
     statComboEl.textContent = 'x' + (maxCombo || 1);
@@ -1344,7 +1352,7 @@
     }
 
     // 在结束界面展示排行榜
-    renderLB(endLbContent, playerName);
+    renderLBList(endLbContent, list, playerName);
     if (rank > 0) {
       const rankEl = document.createElement('p');
       rankEl.style.cssText = 'color:#f9ca24;font-weight:700;font-size:14px;margin:8px 0 0;';
@@ -1435,14 +1443,16 @@
   });
 
   // ── 排行榜按钮 (开始界面) ──
-  document.getElementById('lb-btn').addEventListener('pointerdown', (e) => {
+  document.getElementById('lb-btn').addEventListener('pointerdown', async (e) => {
     e.stopPropagation();
     if (!imageLoaded) return;
-    renderLB(lbContent, playerName);
+    lbContent.innerHTML = '<div class="lb-empty">⏳ 加载中...</div>';
     lbScreen.classList.remove('hidden');
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
     nameScreen.classList.add('hidden');
+    const list = await loadLB();
+    renderLBList(lbContent, list, playerName);
   });
 
   // ── 通用：返回开始界面 ──
