@@ -472,6 +472,7 @@
       <button class="btn" id="name-confirm-btn">确认开始</button>
       <button class="btn btn-ghost" id="name-random-btn">🎲 随机名字</button>
     </div>
+    <button class="btn-small" id="name-back-btn" style="margin-top:16px;">← 返回</button>
   </div>
 
   <!-- 排行榜界面 -->
@@ -508,6 +509,7 @@
     <div class="divider"></div>
     <div id="end-lb-content"></div>
     <button class="btn" id="restart-btn">再来一局</button>
+    <button class="btn-small" id="end-back-btn" style="margin-top:12px;">← 返回首页</button>
     <p class="high-score-text" style="margin-top:14px;">北华大学 · 2026 新生季</p>
   </div>
 </div>
@@ -1443,11 +1445,31 @@
     nameScreen.classList.add('hidden');
   });
 
+  // ── 通用：返回开始界面 ──
+  function backToStart() {
+    nameScreen.classList.add('hidden');
+    lbScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+    watermarkEl.style.display = 'block';
+  }
+
+  // ── 姓名界面返回按钮 ──
+  document.getElementById('name-back-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    backToStart();
+  });
+
+  // ── 结束界面返回按钮 ──
+  document.getElementById('end-back-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    backToStart();
+  });
+
   // ── 排行榜关闭按钮 ──
   document.getElementById('lb-close-btn').addEventListener('pointerdown', (e) => {
     e.stopPropagation();
-    lbScreen.classList.add('hidden');
-    startScreen.classList.remove('hidden');
+    backToStart();
   });
 
   window.addEventListener('resize', () => {
