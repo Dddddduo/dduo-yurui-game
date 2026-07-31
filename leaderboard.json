@@ -1,5 +1,23 @@
 [
   {
+    "name": "魔丸",
+    "score": 17540,
+    "time": 290,
+    "maxCombo": 13,
+    "pops": 448,
+    "date": "8-1",
+    "final": 18923
+  },
+  {
+    "name": "朱瑞宇",
+    "score": 10455,
+    "time": 142,
+    "maxCombo": 19,
+    "pops": 223,
+    "date": "8-1",
+    "final": 11199
+  },
+  {
     "name": "qyw",
     "score": 4920,
     "time": 197,
@@ -18,15 +36,6 @@
     "final": 5551
   },
   {
-    "name": "魔丸",
-    "score": 4060,
-    "time": 130,
-    "maxCombo": 3,
-    "pops": 297,
-    "date": "7-31",
-    "final": 4762
-  },
-  {
     "name": "魔丸二号",
     "score": 3440,
     "time": 112,
@@ -34,15 +43,6 @@
     "pops": 212,
     "date": "7-31",
     "final": 4008
-  },
-  {
-    "name": "朱瑞宇",
-    "score": 3400,
-    "time": 115,
-    "maxCombo": 8,
-    "pops": 137,
-    "date": "8-1",
-    "final": 3922
   },
   {
     "name": "朱瑞余",
@@ -61,6 +61,24 @@
     "pops": 200,
     "date": "7-31",
     "final": 3362
+  },
+  {
+    "name": "北华好学生72",
+    "score": 1195,
+    "time": 47,
+    "maxCombo": 3,
+    "pops": 107,
+    "date": "8-1",
+    "final": 1458
+  },
+  {
+    "name": "北华开心果48",
+    "score": 725,
+    "time": 44,
+    "maxCombo": 8,
+    "pops": 29,
+    "date": "8-1",
+    "final": 926
   },
   {
     "name": "北华开心果72",
@@ -95,6 +113,15 @@
     "pops": 36,
     "date": "7-31",
     "final": 507
+  },
+  {
+    "name": "北华大梦想家50",
+    "score": 150,
+    "time": 36,
+    "maxCombo": 4,
+    "pops": 9,
+    "date": "8-1",
+    "final": 287
   },
   {
     "name": "北华小太阳53",
