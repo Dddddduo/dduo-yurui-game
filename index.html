@@ -199,6 +199,117 @@
     box-shadow: 0 4px 14px rgba(233, 69, 96, 0.25);
   }
 
+  .btn-small {
+    display: inline-block;
+    padding: 10px 28px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 50px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: background 0.2s, transform 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    margin-top: 12px;
+  }
+  .btn-small:active { background: rgba(255,255,255,0.2); transform: scale(0.95); }
+
+  /* ── 姓名输入 ── */
+  .name-input {
+    width: 70%;
+    max-width: 260px;
+    padding: 12px 18px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    text-align: center;
+    letter-spacing: 2px;
+    outline: none;
+    transition: border-color 0.3s;
+    font-family: inherit;
+    margin-bottom: 16px;
+  }
+  .name-input:focus { border-color: rgba(255,255,255,0.5); }
+  .name-input::placeholder { color: rgba(255,255,255,0.25); }
+
+  .name-hint {
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 20px;
+  }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .btn-row .btn { padding: 12px 30px; font-size: 15px; }
+  .btn-row .btn-ghost {
+    background: rgba(255,255,255,0.08);
+    box-shadow: none;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  /* ── 排行榜 ── */
+  .lb-table {
+    width: 85%;
+    max-width: 360px;
+    border-collapse: collapse;
+    margin: 10px 0 18px;
+    font-size: 13px;
+  }
+  .lb-table th {
+    color: rgba(255,255,255,0.35);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .lb-table td {
+    padding: 8px 6px;
+    text-align: center;
+    color: rgba(255,255,255,0.8);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .lb-table .rank-col { width: 32px; }
+  .lb-table .name-col { text-align: left; font-weight: 600; }
+  .lb-table .score-col { font-weight: 800; color: #f9ca24; }
+  .lb-table .time-col { font-size: 11px; color: rgba(255,255,255,0.35); }
+
+  .lb-table tr.me {
+    background: rgba(255,255,255,0.06);
+    border-radius: 6px;
+  }
+  .lb-table tr.me td { color: #fff; }
+
+  .lb-rank-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .lb-rank-1 { background: #f9ca24; color: #1a1025; }
+  .lb-rank-2 { background: #c0c0c0; color: #1a1025; }
+  .lb-rank-3 { background: #cd7f32; color: #fff; }
+  .lb-rank-n  { color: rgba(255,255,255,0.4); }
+
+  .lb-empty {
+    color: rgba(255,255,255,0.25);
+    font-size: 14px;
+    padding: 20px 0;
+  }
+
+  .lb-subtitle {
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 6px;
+  }
+
   .final-score {
     font-size: 60px;
     font-weight: 900;
@@ -345,8 +456,30 @@
       <span><span class="dot red"></span> 炸弹 -30</span>
       <span><span class="dot blue"></span> 冰冻 减速</span>
     </div>
-    <button class="btn" id="start-btn">开始游戏</button>
+    <button class="btn" id="start-btn" disabled style="opacity:0.5;">加载中...</button>
+    <p class="high-score-text" id="load-status" style="margin-top:10px;font-size:12px;">⏳ 正在加载图片...</p>
+    <button class="btn-small" id="lb-btn" disabled style="opacity:0.4;">🏆 排行榜</button>
     <p class="high-score-text" id="start-highscore"></p>
+  </div>
+
+  <!-- 姓名输入界面 -->
+  <div id="name-screen" class="overlay hidden">
+    <h1>✏️ 你的名字</h1>
+    <p class="subtitle">输入昵称，或让系统帮你取一个</p>
+    <input type="text" class="name-input" id="name-input" placeholder="输入昵称" maxlength="8" autocomplete="off">
+    <p class="name-hint" id="name-hint"></p>
+    <div class="btn-row">
+      <button class="btn" id="name-confirm-btn">确认开始</button>
+      <button class="btn btn-ghost" id="name-random-btn">🎲 随机名字</button>
+    </div>
+  </div>
+
+  <!-- 排行榜界面 -->
+  <div id="leaderboard-screen" class="overlay hidden">
+    <h1>🏆 排行榜</h1>
+    <p class="lb-subtitle">北华大学 · 2026 新生季</p>
+    <div id="lb-content"></div>
+    <button class="btn" id="lb-close-btn">关闭</button>
   </div>
 
   <!-- 结束界面 -->
@@ -372,6 +505,8 @@
         <div class="stat-label">存活时间</div>
       </div>
     </div>
+    <div class="divider"></div>
+    <div id="end-lb-content"></div>
     <button class="btn" id="restart-btn">再来一局</button>
     <p class="high-score-text" style="margin-top:14px;">北华大学 · 2026 新生季</p>
   </div>
@@ -391,7 +526,13 @@
   const freezeEl = document.getElementById('freeze-indicator');
   const watermarkEl = document.getElementById('watermark');
   const startScreen    = document.getElementById('start-screen');
+  const nameScreen     = document.getElementById('name-screen');
+  const lbScreen       = document.getElementById('leaderboard-screen');
   const gameOverScreen = document.getElementById('game-over-screen');
+  const nameInput      = document.getElementById('name-input');
+  const nameHint       = document.getElementById('name-hint');
+  const lbContent      = document.getElementById('lb-content');
+  const endLbContent   = document.getElementById('end-lb-content');
   const startHighEl    = document.getElementById('start-highscore');
   const finalScoreEl   = document.getElementById('final-score');
   const newHighEl      = document.getElementById('new-highscore');
@@ -445,13 +586,126 @@
   }
 
   // ═══════════════════════════════════════════
-  //  图片加载
+  //  图片加载 — 必须加载成功才能开始游戏
   // ═══════════════════════════════════════════
   const yuruiImg = new Image();
-  yuruiImg.src = 'yurui.png';
   let imageLoaded = false;
-  yuruiImg.onload  = () => { imageLoaded = true; };
-  yuruiImg.onerror = () => { console.warn('yurui.png 未找到，使用占位图'); };
+  let imageError  = false;
+
+  yuruiImg.onload = () => {
+    imageLoaded = true;
+    imageError  = false;
+    // 图片就绪，启用开始按钮
+    const btn = document.getElementById('start-btn');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '开始游戏';
+      btn.style.opacity = '1';
+    }
+    const statusEl = document.getElementById('load-status');
+    if (statusEl) statusEl.textContent = '✅ 图片就绪';
+  };
+
+  yuruiImg.onerror = () => {
+    imageError = true;
+    const btn = document.getElementById('start-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '图片加载失败';
+      btn.style.opacity = '0.5';
+    }
+    const statusEl = document.getElementById('load-status');
+    if (statusEl) statusEl.textContent = '❌ yurui.png 加载失败，请刷新重试';
+  };
+
+  // 开始加载图片
+  yuruiImg.src = 'yurui.png';
+
+  // ── 图片就绪后同时启用排行榜按钮 ──
+  const origImgOnload = yuruiImg.onload;
+  yuruiImg.onload = () => {
+    origImgOnload();
+    const lbBtn = document.getElementById('lb-btn');
+    if (lbBtn) { lbBtn.disabled = false; lbBtn.style.opacity = '1'; }
+  };
+
+  // ═══════════════════════════════════════════
+  //  玩家姓名 & 排行榜
+  // ═══════════════════════════════════════════
+  const LB_KEY = 'jjl_leaderboard';
+  const MAX_LB  = 10;
+  let playerName = '';
+
+  // 随机名字词库
+  const RANDOM_NAMES = [
+    '北华好学生','北华快乐人','北华大梦想家','北华小太阳',
+    '北华追梦人','北华小将','北华新星','北华学霸',
+    '北华开心果','北华小可爱','北华好青年','北华之星',
+    '北华阳光生','北华幸运儿','北华奋斗者','北华锦鲤',
+    '北华探险家','北华小天才','北华好少年','北华小旋风',
+    '北华满天星','北华千里马','北华小贝壳','北华常青树',
+  ];
+
+  function randomName() {
+    return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)] + ('00' + Math.floor(Math.random() * 100)).slice(-2);
+  }
+
+  function loadLB() {
+    try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; }
+    catch(e) { return []; }
+  }
+
+  function saveLB(list) {
+    try { localStorage.setItem(LB_KEY, JSON.stringify(list)); } catch(e) {}
+  }
+
+  // 插入一条成绩，返回排名 (1-based) 或 -1
+  function insertScore(name, score, timeSec, maxCombo, pops) {
+    const list = loadLB();
+    const entry = {
+      name,
+      score,
+      time: timeSec,
+      maxCombo,
+      pops,
+      date: new Date().toISOString(),
+    };
+    list.push(entry);
+    list.sort((a, b) => b.score - a.score);
+    const top = list.slice(0, MAX_LB);
+    saveLB(top);
+    const idx = top.findIndex(e => e === entry);
+    return idx >= 0 ? idx + 1 : -1;
+  }
+
+  // 渲染排行榜 HTML
+  function renderLB(container, highlightName) {
+    const list = loadLB();
+    if (!list.length) {
+      container.innerHTML = '<div class="lb-empty">暂无记录，快来挑战吧！</div>';
+      return;
+    }
+
+    let html = '<table class="lb-table"><tr><th class="rank-col">排名</th><th class="name-col">昵称</th><th class="score-col">分数</th><th class="time-col">用时</th></tr>';
+    list.forEach((e, i) => {
+      const rank = i + 1;
+      let rankHtml;
+      if (rank === 1) rankHtml = '<span class="lb-rank-icon lb-rank-1">1</span>';
+      else if (rank === 2) rankHtml = '<span class="lb-rank-icon lb-rank-2">2</span>';
+      else if (rank === 3) rankHtml = '<span class="lb-rank-icon lb-rank-3">3</span>';
+      else rankHtml = `<span class="lb-rank-n">${rank}</span>`;
+
+      const isMe = highlightName && e.name === highlightName;
+      html += `<tr class="${isMe ? 'me' : ''}">`;
+      html += `<td class="rank-col">${rankHtml}</td>`;
+      html += `<td class="name-col">${e.name}${isMe ? ' 👈' : ''}</td>`;
+      html += `<td class="score-col">${e.score}</td>`;
+      html += `<td class="time-col">${e.time}秒</td>`;
+      html += '</tr>';
+    });
+    html += '</table>';
+    container.innerHTML = html;
+  }
 
   // ═══════════════════════════════════════════
   //  Canvas 设置 (DPI 适配)
@@ -596,52 +850,37 @@
 
   // 绘制图片圆圈 (统一使用 yurui.png + 效果叠加)
   function drawImageCircle(x, y, r, opacity, effect) {
-    if (r <= 0) return;
+    if (r <= 0 || !imageLoaded) return; // 图片未就绪不绘制
     ctx.save();
     ctx.globalAlpha = opacity;
 
     const size = r * 2.2;
     const hs = size / 2;
 
-    if (imageLoaded) {
-      // 裁剪圆形区域
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.clip();
+    // 裁剪圆形区域
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.clip();
 
-      // 绘制图片
-      ctx.drawImage(yuruiImg, x - hs, y - hs, size, size);
+    // 绘制图片
+    ctx.drawImage(yuruiImg, x - hs, y - hs, size, size);
 
-      // 效果叠加
-      if (effect === 'bomb') {
-        // 红色调叠加
-        ctx.fillStyle = 'rgba(220, 30, 40, 0.30)';
-        ctx.fillRect(x - r, y - r, r * 2, r * 2);
-      } else if (effect === 'freeze') {
-        // 蓝色冰霜叠加
-        ctx.fillStyle = 'rgba(50, 150, 240, 0.22)';
-        ctx.fillRect(x - r, y - r, r * 2, r * 2);
-      } else if (effect === 'gold') {
-        // 金色高光
-        ctx.fillStyle = 'rgba(255, 200, 50, 0.18)';
-        ctx.fillRect(x - r, y - r, r * 2, r * 2);
-      }
-    } else {
-      // 图片未加载时的占位
-      const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.05, x, y, r);
-      grad.addColorStop(0, 'rgba(255,255,255,0.8)');
-      grad.addColorStop(0.3, effect === 'bomb' ? '#ff4757' : effect === 'gold' ? '#f9ca24' : effect === 'freeze' ? '#5dade2' : '#ccc');
-      grad.addColorStop(1, 'rgba(0,0,0,0.25)');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
+    // 效果叠加
+    if (effect === 'bomb') {
+      ctx.fillStyle = 'rgba(220, 30, 40, 0.30)';
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    } else if (effect === 'freeze') {
+      ctx.fillStyle = 'rgba(50, 150, 240, 0.22)';
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    } else if (effect === 'gold') {
+      ctx.fillStyle = 'rgba(255, 200, 50, 0.18)';
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
     }
 
     ctx.restore();
 
     // 绘制外圈光环 (不受裁剪影响)
-    if (imageLoaded && effect && r > 5) {
+    if (effect && r > 5) {
       ctx.save();
       ctx.globalAlpha = opacity;
       const ringR = r + 4;
@@ -1023,6 +1262,9 @@
   //  游戏流程
   // ═══════════════════════════════════════════
   function startGame() {
+    // 图片必须加载完毕
+    if (!imageLoaded) return;
+
     initAudio();
     resizeCanvas();
     initBgOrbs();
@@ -1054,6 +1296,8 @@
     hps.forEach(h => h.classList.remove('lost'));
 
     startScreen.classList.add('hidden');
+    nameScreen.classList.add('hidden');
+    lbScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
     watermarkEl.style.display = 'none';
 
@@ -1082,15 +1326,28 @@
       isNew = true;
     }
 
+    // 插入排行榜
+    const timeSec = Math.floor(elapsed);
+    const rank = insertScore(playerName || '匿名玩家', score, timeSec, maxCombo || 1, totalPops);
+
     finalScoreEl.textContent = score;
     statComboEl.textContent = 'x' + (maxCombo || 1);
     statPopsEl.textContent = totalPops;
-    statTimeEl.textContent = Math.floor(elapsed) + '秒';
+    statTimeEl.textContent = timeSec + '秒';
 
     if (isNew) {
       newHighEl.classList.remove('hidden');
     } else {
       newHighEl.classList.add('hidden');
+    }
+
+    // 在结束界面展示排行榜
+    renderLB(endLbContent, playerName);
+    if (rank > 0) {
+      const rankEl = document.createElement('p');
+      rankEl.style.cssText = 'color:#f9ca24;font-weight:700;font-size:14px;margin:8px 0 0;';
+      rankEl.textContent = '🏅 你在排行榜第 ' + rank + ' 名！';
+      endLbContent.prepend(rankEl);
     }
 
     gameOverScreen.classList.remove('hidden');
@@ -1121,14 +1378,76 @@
 
   container.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 
+  // ── 开始按钮：先跳转姓名输入 ──
   document.getElementById('start-btn').addEventListener('pointerdown', (e) => {
     e.stopPropagation();
+    if (!imageLoaded) return;
+    openNameScreen();
+  });
+
+  // ── 重新开始：也跳转姓名输入 ──
+  document.getElementById('restart-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    openNameScreen();
+  });
+
+  // ── 姓名输入界面逻辑 ──
+  function openNameScreen() {
+    nameInput.value = playerName || '';
+    nameHint.textContent = playerName ? '当前昵称: ' + playerName : '留空将自动随机生成';
+    nameScreen.classList.remove('hidden');
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    lbScreen.classList.add('hidden');
+    setTimeout(() => nameInput.focus(), 300);
+  }
+
+  // 回车确认
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('name-confirm-btn').click();
+    }
+  });
+
+  document.getElementById('name-confirm-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    const val = nameInput.value.trim();
+    playerName = val || randomName();
+    nameScreen.classList.add('hidden');
+
+    // 二次确认图片已加载
+    if (!imageLoaded) {
+      alert('图片尚未加载完成，请稍候再试');
+      return;
+    }
     startGame();
   });
 
-  document.getElementById('restart-btn').addEventListener('pointerdown', (e) => {
+  document.getElementById('name-random-btn').addEventListener('pointerdown', (e) => {
     e.stopPropagation();
-    startGame();
+    const rn = randomName();
+    nameInput.value = rn;
+    playerName = rn;
+    nameHint.textContent = '已随机生成: ' + rn;
+  });
+
+  // ── 排行榜按钮 (开始界面) ──
+  document.getElementById('lb-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    if (!imageLoaded) return;
+    renderLB(lbContent, playerName);
+    lbScreen.classList.remove('hidden');
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    nameScreen.classList.add('hidden');
+  });
+
+  // ── 排行榜关闭按钮 ──
+  document.getElementById('lb-close-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    lbScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
   });
 
   window.addEventListener('resize', () => {
