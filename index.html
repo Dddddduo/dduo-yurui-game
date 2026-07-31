@@ -77,9 +77,46 @@
     font-size: 22px;
     margin-top: 4px;
   }
-
   #lives .hp { transition: transform 0.3s, opacity 0.3s; }
   #lives .hp.lost { opacity: 0.15; transform: scale(0.6); }
+
+  /* ── 计时器 ── */
+  #timer-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  #timer-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.45);
+    font-weight: 600;
+  }
+  #timer {
+    font-size: 38px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    transition: color 0.3s;
+  }
+  #timer.warning { color: #ff4757; animation: timerBlink 0.5s infinite alternate; }
+  @keyframes timerBlink { from { opacity: 1; } to { opacity: 0.4; } }
+
+  #timer-bar-container {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    z-index: 10;
+    pointer-events: none;
+  }
+  #timer-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #5dade2, #ff6b9d);
+    transition: width 0.3s linear;
+    width: 100%;
+  }
+  #timer-bar.warning { background: linear-gradient(90deg, #ff4757, #ff6b9d); }
 
   /* Freeze indicator */
   #freeze-indicator {
@@ -428,12 +465,17 @@
       <span id="score-label">得分</span>
       <span id="score">0</span>
     </div>
+    <div id="timer-display">
+      <span id="timer-label">时间</span>
+      <span id="timer">60</span>
+    </div>
     <div id="lives">
       <span class="hp">❤️</span>
       <span class="hp">❤️</span>
       <span class="hp">❤️</span>
     </div>
   </div>
+  <div id="timer-bar-container"><div id="timer-bar"></div></div>
   <div id="freeze-indicator">❄️ 时间减缓</div>
   <div id="combo-display"></div>
 
@@ -454,7 +496,7 @@
     <div class="legend">
       <span><span class="dot gold"></span> 金色 +30</span>
       <span><span class="dot red"></span> 炸弹 -30</span>
-      <span><span class="dot blue"></span> 冰冻 减速</span>
+      <span><span class="dot blue"></span> 冰冻 +5秒</span>
     </div>
     <button class="btn" id="start-btn" disabled style="opacity:0.5;">加载中...</button>
     <p class="high-score-text" id="load-status" style="margin-top:10px;font-size:12px;">⏳ 正在加载图片...</p>
@@ -526,6 +568,8 @@
   const livesEl  = document.getElementById('lives');
   const comboEl  = document.getElementById('combo-display');
   const freezeEl = document.getElementById('freeze-indicator');
+  const timerEl   = document.getElementById('timer');
+  const timerBar  = document.getElementById('timer-bar');
   const watermarkEl = document.getElementById('watermark');
   const startScreen    = document.getElementById('start-screen');
   const nameScreen     = document.getElementById('name-screen');
@@ -596,45 +640,100 @@
 
   yuruiImg.onload = () => {
     imageLoaded = true;
-    imageError  = false;
-    // 图片就绪，启用开始按钮
     const btn = document.getElementById('start-btn');
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = '开始游戏';
-      btn.style.opacity = '1';
-    }
+    if (btn) { btn.disabled = false; btn.textContent = '开始游戏'; btn.style.opacity = '1'; }
     const statusEl = document.getElementById('load-status');
     if (statusEl) statusEl.textContent = '✅ 图片就绪';
+    // 同时启用排行榜按钮
+    const lbBtn = document.getElementById('lb-btn');
+    if (lbBtn) { lbBtn.disabled = false; lbBtn.style.opacity = '1'; }
   };
 
   yuruiImg.onerror = () => {
     imageError = true;
     const btn = document.getElementById('start-btn');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = '图片加载失败';
-      btn.style.opacity = '0.5';
-    }
+    if (btn) { btn.disabled = true; btn.textContent = '图片加载失败'; btn.style.opacity = '0.5'; }
     const statusEl = document.getElementById('load-status');
-    if (statusEl) statusEl.textContent = '❌ yurui.png 加载失败，请刷新重试';
+    if (statusEl) statusEl.textContent = '❌ yurui-small.png 加载失败，请刷新重试';
   };
 
-  // 开始加载图片
   yuruiImg.src = 'yurui-small.png';
 
-  // ── 图片就绪后同时启用排行榜按钮 ──
-  const origImgOnload = yuruiImg.onload;
-  yuruiImg.onload = () => {
-    origImgOnload();
-    const lbBtn = document.getElementById('lb-btn');
-    if (lbBtn) { lbBtn.disabled = false; lbBtn.style.opacity = '1'; }
-  };
+  // ═══════════════════════════════════════════
+  //  排行榜 (GitHub API → leaderboard.json)
+  // ═══════════════════════════════════════════
+  const GH_USER  = 'Dddddduo';
+  const GH_REPO  = 'dduo-yurui-game';
+  const GH_TOKEN = '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';
+  const GH_FILE  = 'leaderboard.json';
+  const GH_API   = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`;
 
-  // ═══════════════════════════════════════════
-  //  玩家姓名 & 排行榜
-  // ═══════════════════════════════════════════
-  const LB_API  = '/api/leaderboard';
+  // base64 解码 (支持中文)
+  function b64decode(b64) {
+    return decodeURIComponent(escape(atob(b64)));
+  }
+  function b64encode(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  async function loadLB() {
+    try {
+      const res = await fetch(GH_API, {
+        headers: { Authorization: `Bearer ${GH_TOKEN}` }
+      });
+      if (res.status === 404) return [];
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      return JSON.parse(b64decode(data.content));
+    } catch(e) { console.warn('排行榜加载失败:', e.message); return []; }
+  }
+
+  async function insertScore(name, score, timeSec, maxCombo, pops) {
+    try {
+      // 先读当前数据 + sha
+      let list = [], sha = null;
+      try {
+        const getRes = await fetch(GH_API, {
+          headers: { Authorization: `Bearer ${GH_TOKEN}` }
+        });
+        if (getRes.ok) {
+          const data = await getRes.json();
+          sha = data.sha;
+          list = JSON.parse(b64decode(data.content));
+        }
+      } catch(e) {}
+
+      // 插入新成绩
+      list.push({ name, score, time: timeSec, maxCombo, pops });
+      list.sort((a, b) => b.score - a.score);
+      list = list.slice(0, 10);
+
+      // 写回
+      const body = {
+        message: `📊 ${name}: ${score}分`,
+        content: b64encode(JSON.stringify(list)),
+      };
+      if (sha) body.sha = sha;
+
+      const putRes = await fetch(GH_API, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${GH_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
+
+      // 查排名
+      let rank = -1;
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].name === name && list[i].score === score) { rank = i + 1; break; }
+      }
+      return { rank, list };
+    } catch(e) { console.warn('成绩提交失败:', e.message); return { rank: -1, list: [] }; }
+  }
+
   let playerName = '';
 
   // 随机名字词库
@@ -649,42 +748,6 @@
 
   function randomName() {
     return RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)] + ('00' + Math.floor(Math.random() * 100)).slice(-2);
-  }
-
-  // 从服务器加载排行榜
-  async function loadLB() {
-    try {
-      const res = await fetch(LB_API);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return await res.json();
-    } catch(e) {
-      console.warn('排行榜加载失败:', e.message);
-      return [];
-    }
-  }
-
-  // 提交成绩到服务器，返回 { rank, leaderboard }
-  async function insertScore(name, score, timeSec, maxCombo, pops) {
-    try {
-      const res = await fetch(LB_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          score,
-          time: timeSec,
-          maxCombo,
-          pops,
-          date: new Date().toISOString(),
-        }),
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      return { rank: data.rank, list: data.leaderboard || [] };
-    } catch(e) {
-      console.warn('成绩提交失败:', e.message);
-      return { rank: -1, list: [] };
-    }
   }
 
   // 渲染排行榜 HTML (接受 list 参数)
@@ -739,12 +802,20 @@
     freeze: { points: 5,   maxR: 38, weight: 3,  effect: 'freeze' },
   };
 
-  const TOTAL_WEIGHT = Object.values(TYPES).reduce((s, t) => s + t.weight, 0);
-
   function pickType() {
-    let r = Math.random() * TOTAL_WEIGHT;
-    for (const [name, cfg] of Object.entries(TYPES)) {
-      r -= cfg.weight;
+    const progress = Math.min(1, elapsed / MAX_GAME_TIME);
+    // 炸弹权重随进度增加：5 → 11 (最后时段炸弹更多)
+    const bombW = 5 + progress * 6;
+    const totalW = TYPES.normal.weight + TYPES.gold.weight + bombW + TYPES.freeze.weight;
+    let r = Math.random() * totalW;
+    const weights = [
+      { name: 'normal', w: TYPES.normal.weight },
+      { name: 'gold',   w: TYPES.gold.weight },
+      { name: 'bomb',   w: bombW },
+      { name: 'freeze', w: TYPES.freeze.weight },
+    ];
+    for (const { name, w } of weights) {
+      r -= w;
       if (r <= 0) return name;
     }
     return 'normal';
@@ -753,8 +824,11 @@
   // ═══════════════════════════════════════════
   //  游戏状态
   // ═══════════════════════════════════════════
+  const MAX_GAME_TIME = 30; // 每局 30 秒
+
   let state = 'start'; // start | playing | over
   let score = 0;
+  let gameTime = MAX_GAME_TIME;
   let lives = 3;
   let combo = 0;
   let maxCombo = 0;
@@ -766,11 +840,8 @@
   let floatingTexts = [];
   let spawnTimer = 0;
   let spawnInterval = 0.85;
-  let difficulty = 1;
   let shakeAmount = 0;
-  let bgOrbs = [];       // 背景装饰球
-  let frozen = false;
-  let freezeTimer = 0;
+  let bgOrbs = [];
 
   // ═══════════════════════════════════════════
   //  创建圆圈
@@ -780,11 +851,13 @@
     const margin = 55;
     const x = margin + Math.random() * (W - margin * 2);
     const y = margin + Math.random() * (H - margin * 2 - 70);
+    // 随时间推移，圆圈存活时间越来越短
+    const progress = Math.min(1, elapsed / MAX_GAME_TIME);
+    const ltMult = 1 - progress * 0.6; // 存活时间最多缩短 60%
     return {
       type,
       effect: cfg.effect,
       x, y,
-      // 微小的漂移
       driftX: (Math.random() - 0.5) * 25,
       driftY: (Math.random() - 0.5) * 25,
       driftSpeed: 0.3 + Math.random() * 0.7,
@@ -795,11 +868,10 @@
       shrinking: false,
       opacity: 1,
       lifetime: 0,
-      maxLifetime: 1.9 + Math.random() * 1.4,
-      growSpeed: 95,
-      shrinkSpeed: 105,
+      maxLifetime: (1.9 + Math.random() * 1.4) * ltMult,
+      growSpeed: 95 + progress * 40,  // 出现更快
+      shrinkSpeed: 105 + progress * 100, // 消失更快
       pulsePhase: Math.random() * Math.PI * 2,
-      // 炸弹震动标记
       wobble: type === 'bomb' ? (Math.random() - 0.5) * 3 : 0,
     };
   }
@@ -960,19 +1032,39 @@
 
     elapsed += dt;
 
-    // 冰冻计时
-    if (frozen) {
-      freezeTimer -= dt;
-      if (freezeTimer <= 0) {
-        frozen = false;
-        freezeEl.classList.remove('active');
-      }
+    // ── 关卡倒计时 ──
+    gameTime -= dt;
+    if (gameTime <= 0) {
+      gameTime = 0;
+      endGame();
+      return;
     }
 
-    // 难度递增
-    difficulty = 1 + elapsed / 22;
-    const baseInterval = frozen ? 1.6 : 0.85;
-    spawnInterval = Math.max(0.28, baseInterval - elapsed * 0.007);
+    // 更新计时器显示
+    const sec = Math.ceil(gameTime);
+    timerEl.textContent = sec;
+    const pct = (gameTime / MAX_GAME_TIME) * 100;
+    timerBar.style.width = pct + '%';
+    if (sec <= 10) {
+      timerEl.classList.add('warning');
+      timerBar.classList.add('warning');
+      if (sec <= 5 && Math.floor(gameTime * 4) % 2 === 0) {
+        vibrate(8);
+      }
+    } else {
+      timerEl.classList.remove('warning');
+      timerBar.classList.remove('warning');
+    }
+
+    // ── 难度递增：越往后越快 ──
+    // spawnInterval: 0.9s → 0.18s (最后 10 秒极快)
+    const progress = Math.min(1, elapsed / MAX_GAME_TIME);
+    spawnInterval = 0.9 - progress * 0.72;
+    // 最后 10 秒加速曲线更陡
+    if (elapsed > MAX_GAME_TIME - 10) {
+      spawnInterval = Math.max(0.15, 0.28 - (elapsed - (MAX_GAME_TIME - 10)) * 0.03);
+    }
+    spawnInterval = Math.max(0.15, spawnInterval);
 
     // 生成圆圈
     spawnTimer += dt;
@@ -1211,9 +1303,9 @@
       // ── 冰冻 ──
       sfxFreeze();
       vibrate(25);
-      frozen = true;
-      freezeTimer = 3.5;
+      gameTime = Math.min(MAX_GAME_TIME, gameTime + 5); // +5 秒
       freezeEl.classList.add('active');
+      setTimeout(() => freezeEl.classList.remove('active'), 800);
 
       combo++;
       if (combo > maxCombo) maxCombo = combo;
@@ -1222,7 +1314,7 @@
 
       spawnParticles(x, y, '#5dade2', 20);
       spawnParticles(x, y, '#aed6f1', 12);
-      spawnText(x, y - 20, '❄️ 减速!', '#5dade2');
+      spawnText(x, y - 20, '❄️ +5秒!', '#5dade2');
     } else {
       // ── 普通 / 金色 ──
       if (c.type === 'gold') {
@@ -1278,6 +1370,7 @@
     initBgOrbs();
 
     score = 0;
+    gameTime = MAX_GAME_TIME;
     lives = 3;
     combo = 0;
     maxCombo = 0;
@@ -1288,14 +1381,15 @@
     floatingTexts = [];
     spawnTimer = 0;
     spawnInterval = 0.85;
-    difficulty = 1;
     shakeAmount = 0;
     lastTime = 0;
-    frozen = false;
-    freezeTimer = 0;
 
     scoreEl.textContent = '0';
     scoreEl.style.transform = '';
+    timerEl.textContent = MAX_GAME_TIME;
+    timerEl.classList.remove('warning');
+    timerBar.style.width = '100%';
+    timerBar.classList.remove('warning');
     comboEl.classList.remove('active');
     comboEl.textContent = '';
     freezeEl.classList.remove('active');
@@ -1315,8 +1409,9 @@
 
   async function endGame() {
     state = 'over';
-    frozen = false;
     freezeEl.classList.remove('active');
+    timerEl.classList.remove('warning');
+    timerBar.classList.remove('warning');
 
     // 爆炸剩余圆圈
     for (const c of circles) {
@@ -1334,11 +1429,11 @@
       isNew = true;
     }
 
-    // 插入排行榜 (异步)
+    // 提交成绩到 GitHub 排行榜
     const timeSec = Math.floor(elapsed);
     endLbContent.innerHTML = '<div class="lb-empty">⏳ 提交成绩中...</div>';
-    const result = await insertScore(playerName || '匿名玩家', score, timeSec, maxCombo || 1, totalPops);
-    const { rank, list } = result;
+    gameOverScreen.classList.remove('hidden');
+    const { rank, list } = await insertScore(playerName || '匿名玩家', score, timeSec, maxCombo || 1, totalPops);
 
     finalScoreEl.textContent = score;
     statComboEl.textContent = 'x' + (maxCombo || 1);
@@ -1360,7 +1455,6 @@
       endLbContent.prepend(rankEl);
     }
 
-    gameOverScreen.classList.remove('hidden');
     watermarkEl.style.display = 'block';
 
     // 结束动画

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "北华测试",
+    "score": 520,
+    "time": 55,
+    "maxCombo": 8,
+    "pops": 26,
+    "date": ""
+  },
+  {
+    "name": "测试玩家01",
+    "score": 100,
+    "time": 30,
+    "maxCombo": 5,
+    "pops": 10,
+    "date": "2026-07-31T00:00:00Z"
+  },
+  {
+    "name": "测试玩家02",
+    "score": 80,
+    "time": 25,
+    "maxCombo": 3,
+    "pops": 8,
+    "date": "2026-07-31T00:01:00Z"
+  }
+]
