@@ -335,6 +335,15 @@
   .lb-rank-3 { background: #cd7f32; color: #fff; }
   .lb-rank-n  { color: rgba(255,255,255,0.4); }
 
+  #lb-content, #end-lb-content {
+    max-height: 60vh;
+    overflow-y: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
   .lb-empty {
     color: rgba(255,255,255,0.25);
     font-size: 14px;
@@ -689,7 +698,9 @@
 
   async function loadLB() {
     try {
-      const res = await fetch(GH_API); // 公开读取无需 token
+      const res = await fetch(GH_API, {
+        headers: { Authorization: `Bearer ${GH_TOKEN}` }
+      });
       if (res.status === 404) return [];
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
@@ -702,7 +713,9 @@
       // 先读当前数据 + sha
       let list = [], sha = null;
       try {
-        const getRes = await fetch(GH_API); // 读取无需 token
+        const getRes = await fetch(GH_API, {
+          headers: { Authorization: `Bearer ${GH_TOKEN}` }
+        });
         if (getRes.ok) {
           const data = await getRes.json();
           sha = data.sha;
@@ -713,7 +726,7 @@
       // 插入新成绩
       list.push({ name, score, time: timeSec, maxCombo, pops });
       list.sort((a, b) => b.score - a.score);
-      list = list.slice(0, 10);
+      list = list.slice(0, 50);
 
       // 写回
       const body = {
